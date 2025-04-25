@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,8 +78,8 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
   };
 
   return (
-    <Card className="max-w-3xl mx-auto bg-white dark:bg-gray-800 shadow-lg">
-      <CardHeader className="border-b">
+    <Card className="max-w-3xl mx-auto bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700">
+      <CardHeader className="border-b dark:border-gray-700">
         <div className="flex justify-between items-center">
           <CardTitle className="text-xl font-bold">Review</CardTitle>
           <Button 
@@ -102,7 +103,7 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
       <CardContent className="pt-6 pb-4">
         <div className="mb-8">
           <h3 className="text-lg font-medium mb-2 text-gray-700 dark:text-gray-300">Question</h3>
-          <div className="text-xl bg-gray-50 dark:bg-gray-900 p-4 rounded-md border dark:border-gray-700">
+          <div className="text-xl bg-gray-50 dark:bg-gray-900 p-4 rounded-md border dark:border-gray-700 text-foreground">
             {snapshot.question}
           </div>
         </div>
@@ -123,7 +124,7 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
           <>
             <div className="mb-4">
               <h3 className="text-lg font-medium mb-2 text-gray-700 dark:text-gray-300">Answer</h3>
-              <div className="text-xl bg-gray-50 dark:bg-gray-900 p-4 rounded-md border dark:border-gray-700">
+              <div className="text-xl bg-gray-50 dark:bg-gray-900 p-4 rounded-md border dark:border-gray-700 text-foreground">
                 {snapshot.answer}
               </div>
             </div>
@@ -131,13 +132,13 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <h3 className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Summary</h3>
-                <div className="text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-md border dark:border-gray-700">
+                <div className="text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-md border dark:border-gray-700 text-foreground">
                   {snapshot.summary}
                 </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Analogy</h3>
-                <div className="text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-md border dark:border-gray-700">
+                <div className="text-sm bg-gray-50 dark:bg-gray-900 p-3 rounded-md border dark:border-gray-700 text-foreground">
                   {snapshot.analogy}
                 </div>
               </div>
@@ -148,7 +149,7 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
                 <Laugh className="h-5 w-5 text-yellow-500" />
                 SnapGiggle™ Mnemonic
               </h3>
-              <div className="text-lg bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <div className="text-lg bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-md border border-yellow-200 dark:border-yellow-800 text-foreground">
                 {snapshot.mnemonic}
               </div>
             </div>
@@ -157,15 +158,15 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
       </CardContent>
       
       {showAnswer && (
-        <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
-          <div className="text-sm text-gray-500 mb-2 sm:mb-0 sm:mr-auto">
+        <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2 dark:border-gray-700">
+          <div className="text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-0 sm:mr-auto">
             How well did you remember this?
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button
               disabled={isReviewing}
               variant="outline"
-              className="flex-1 sm:flex-none border-red-200 bg-red-50 hover:bg-red-100 text-red-700"
+              className="flex-1 sm:flex-none border-red-200 bg-red-50 hover:bg-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30"
               onClick={() => handleReview(Difficulty.Hard)}
             >
               Hard
@@ -173,7 +174,7 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
             <Button
               disabled={isReviewing}
               variant="outline"
-              className="flex-1 sm:flex-none border-yellow-200 bg-yellow-50 hover:bg-yellow-100 text-yellow-700"
+              className="flex-1 sm:flex-none border-yellow-200 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:border-yellow-800 dark:text-yellow-400 dark:hover:bg-yellow-900/30"
               onClick={() => handleReview(Difficulty.Medium)}
             >
               Medium
@@ -181,7 +182,7 @@ export default function ReviewCard({ snapshot, onReview, onNextCard }: ReviewCar
             <Button
               disabled={isReviewing}
               variant="outline"
-              className="flex-1 sm:flex-none border-green-200 bg-green-50 hover:bg-green-100 text-green-700"
+              className="flex-1 sm:flex-none border-green-200 bg-green-50 hover:bg-green-100 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/30"
               onClick={() => handleReview(Difficulty.Easy)}
             >
               Easy

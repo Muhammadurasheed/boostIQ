@@ -1,5 +1,13 @@
+
 const GEMINI_API_KEY = "AIzaSyA81SV6mvA9ShZasJgcVl4ps-YQm9DrKsc";
 
+/**
+ * Generates a memory aid for a given text using Gemini 2.0 Flash API
+ * 
+ * @param text The text to create a memory aid for
+ * @param userInterest Optional user interest to personalize content
+ * @returns Object containing generated memory aid components
+ */
 export async function generateSnapshot(text: string, userInterest?: string): Promise<{
   question: string;
   answer: string;
@@ -12,6 +20,7 @@ export async function generateSnapshot(text: string, userInterest?: string): Pro
     // Updated API endpoint for Gemini 2.0 Flash
     const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     
+    // Create the prompt with clear formatting instructions
     const prompt = `
     Create a memory aid for the following text: "${text}"
     ${userInterest ? `Create content that resonates with someone who loves ${userInterest}.` : ''}
@@ -37,6 +46,7 @@ export async function generateSnapshot(text: string, userInterest?: string): Pro
     
     console.log("Making API request to Gemini with URL:", url);
     
+    // Make the API request with proper error handling
     const response = await fetch(`${url}?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: {
@@ -55,23 +65,34 @@ export async function generateSnapshot(text: string, userInterest?: string): Pro
       })
     });
 
+    // Log detailed error information if the request fails
     if (!response.ok) {
-      console.error("API request failed with status:", response.status, response.statusText);
+      const statusCode = response.status;
+      const statusText = response.statusText;
       const errorBody = await response.text();
-      console.error("Error response body:", errorBody);
-      throw new Error(`API request failed with status ${response.status}`);
+      
+      console.error("Gemini API request failed:", {
+        statusCode,
+        statusText,
+        errorBody: errorBody.substring(0, 500) // Log first 500 chars to avoid massive logs
+      });
+      
+      throw new Error(`API request failed with status ${statusCode}: ${statusText}`);
     }
 
+    // Parse the API response
     const data = await response.json();
-    console.log("Gemini API response:", data);
+    console.log("Gemini API response received");
     
     if (!data.candidates || data.candidates.length === 0) {
+      console.error("No candidates in Gemini response:", data);
       throw new Error("No response from Gemini API");
     }
     
     const content = data.candidates[0].content;
     
     if (!content || !content.parts || content.parts.length === 0) {
+      console.error("Invalid content structure in Gemini response:", content);
       throw new Error("Invalid response structure from Gemini API");
     }
     
@@ -89,8 +110,17 @@ export async function generateSnapshot(text: string, userInterest?: string): Pro
       jsonStr = jsonMatch[0].replace(/```json|```/g, '').trim();
     }
     
-    // Parse the JSON
+    // Parse the JSON and ensure all required fields are present
     const parsedResponse = JSON.parse(jsonStr);
+    
+    // Validate the response has all required fields
+    const requiredFields = ["question", "answer", "summary", "analogy", "mnemonic"];
+    for (const field of requiredFields) {
+      if (!parsedResponse[field]) {
+        console.warn(`Missing field in Gemini response: ${field}`);
+        parsedResponse[field] = `(No ${field} generated)`;
+      }
+    }
     
     return {
       question: parsedResponse.question,

@@ -1,3 +1,5 @@
+
+
 import { 
   collection, 
   doc, 
@@ -15,6 +17,7 @@ import {
 import { db, auth } from "./firebase";
 import { Snapshot, User } from "../types";
 import { initializeReview, calculateNextReview, Difficulty, ReviewInfo } from "./spacedRepetition";
+// Helper to convert between Date and Timestamp
 
 // Helper to convert between Date and Timestamp
 const convertDatesToTimestamps = (obj: any) => {
@@ -201,7 +204,7 @@ export async function createOrUpdateUser(userData: Partial<User>): Promise<User>
       newUserData = {
         id: user.uid,
         email: user.email || "",
-        name: user.displayName || "",
+        name: user.displayName || "",  // Provide empty string as fallback
         createdAt: new Date(),
         stats: {
           totalSnapshots: 0,
@@ -214,13 +217,36 @@ export async function createOrUpdateUser(userData: Partial<User>): Promise<User>
     }
     
     // Ensure no undefined values are sent to Firestore
-    const cleanedData = Object.fromEntries(
-      Object.entries(newUserData).filter(([_, value]) => value !== undefined)
-    );
+    // This is a recursive function to clean objects at all levels
+    const cleanObject = (obj: any): any => {
+      const result: any = {};
+      
+      Object.keys(obj).forEach(key => {
+        const value = obj[key];
+        // Skip undefined values
+        if (value === undefined) return;
+        
+        // Process nested objects
+        if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+          result[key] = cleanObject(value);
+        } else {
+          result[key] = value;
+        }
+      });
+      
+      return result;
+    };
     
-    await setDoc(userRef, convertDatesToTimestamps(cleanedData), { merge: true });
+    // Clean the user data before saving
+    const cleanedData = cleanObject(newUserData);
     
-    return newUserData as User;
+    // Convert any Date objects to Firestore Timestamps
+    const firestoreData = convertDatesToTimestamps(cleanedData);
+    
+    // Save to Firestore using merge to prevent overwriting existing fields
+    await setDoc(userRef, firestoreData, { merge: true });
+    
+    return cleanedData as User;
   } catch (error) {
     console.error("Error creating/updating user:", error);
     throw error;

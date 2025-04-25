@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Snapshot, User } from "../types";
 import { 
@@ -43,37 +44,62 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(false);
+  const [loadAttempted, setLoadAttempted] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, guestMode } = useAuth();
 
   // Check if we're in mock mode (no auth)
   useEffect(() => {
     const checkMockMode = async () => {
       const mock = await isInMockMode();
-      setMockMode(mock);
+      setMockMode(mock || guestMode);
     };
     
     checkMockMode();
-  }, [user]); // Now depends on user state
+  }, [user, guestMode]); // Now depends on user and guestMode state
 
   // Load snapshots and user data
   useEffect(() => {
     async function loadData() {
       try {
+        if (loadAttempted && !user && !guestMode) {
+          // If we've already tried to load data, and there's still no user or guest mode,
+          // don't attempt to load again to avoid error messages
+          setLoading(false);
+          return;
+        }
+
         setLoading(true);
         setError(null);
+        setLoadAttempted(true);
 
         // Only attempt to load data if user is logged in or in mock mode
-        if (user || mockMode) {
+        if (user || mockMode || guestMode) {
           // Get snapshots
           let snapshotData: Snapshot[] = [];
           let dueSnapshotData: Snapshot[] = [];
           let userData: User | null = null;
 
-          if (mockMode) {
-            snapshotData = await getMockSnapshots();
-            dueSnapshotData = await getMockDueSnapshots();
-            userData = await getMockUserData();
+          if (mockMode || guestMode) {
+            try {
+              snapshotData = await getMockSnapshots();
+              dueSnapshotData = await getMockDueSnapshots();
+              userData = await getMockUserData();
+            } catch (err) {
+              console.log("Using empty local storage data for guest mode");
+              snapshotData = [];
+              dueSnapshotData = [];
+              userData = {
+                id: "guest",
+                email: "guest@example.com",
+                createdAt: new Date(),
+                stats: {
+                  totalSnapshots: 0,
+                  streakDays: 0,
+                  lastActiveDate: new Date()
+                }
+              };
+            }
           } else {
             try {
               snapshotData = await getUserSnapshots();
@@ -105,7 +131,7 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
         console.error("Error loading snapshot data:", err);
         setError("Failed to load data. Please try again.");
         // Only show toast for real errors, not initial load states
-        if (user) {
+        if (user && !guestMode && !mockMode) {
           toast({
             title: "Error",
             description: "Failed to load your data. Please try again.",
@@ -118,14 +144,14 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
     }
 
     loadData();
-  }, [mockMode, user, toast]);
+  }, [mockMode, user, toast, guestMode, loadAttempted]);
 
   const refreshSnapshots = async () => {
     try {
       setLoading(true);
       
       // Only refresh if user is logged in or in mock mode
-      if (!user && !mockMode) {
+      if (!user && !mockMode && !guestMode) {
         setSnapshots([]);
         setDueSnapshots([]);
         return;
@@ -134,7 +160,7 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       let snapshotData: Snapshot[];
       let dueSnapshotData: Snapshot[];
       
-      if (mockMode) {
+      if (mockMode || guestMode) {
         snapshotData = await getMockSnapshots();
         dueSnapshotData = await getMockDueSnapshots();
       } else {
@@ -146,11 +172,14 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       setDueSnapshots(dueSnapshotData);
     } catch (err) {
       console.error("Error refreshing snapshots:", err);
-      toast({
-        title: "Error",
-        description: "Failed to refresh your snapshots.",
-        variant: "destructive",
-      });
+      // Don't show error if we're just in an empty state
+      if (user && !guestMode && !mockMode) {
+        toast({
+          title: "Error",
+          description: "Failed to refresh your snapshots.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -158,10 +187,11 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
 
   const createSnapshot = async (snapshot: Omit<Snapshot, "id" | "createdAt" | "review" | "userId">) => {
     try {
-      const newSnapshot = mockMode 
+      const newSnapshot = mockMode || guestMode
         ? await createMockSnapshot(snapshot)
         : await createFirestoreSnapshot(snapshot);
       
+      // Update local state immediately
       setSnapshots(prev => [newSnapshot, ...prev]);
       
       // Check if the snapshot is due immediately
@@ -188,7 +218,7 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
 
   const updateSnapshotAfterReview = async (snapshotId: string, difficulty: Difficulty) => {
     try {
-      const updatedSnapshot = mockMode
+      const updatedSnapshot = mockMode || guestMode
         ? await updateMockSnapshotAfterReview(snapshotId, difficulty)
         : await updateFirestoreSnapshotAfterReview(snapshotId, difficulty);
       
@@ -208,7 +238,7 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       }
       
       // Update user streak
-      if (mockMode) {
+      if (mockMode || guestMode) {
         await updateMockUserStreak();
         const updatedUser = await getMockUserData();
         setUserData(updatedUser);
@@ -222,6 +252,8 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
         title: "Review recorded",
         description: `Next review scheduled for ${updatedSnapshot.review.nextReviewDate.toLocaleString()}`,
       });
+      
+      return;
     } catch (err) {
       console.error("Error updating snapshot after review:", err);
       toast({
@@ -229,12 +261,13 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
         description: "Failed to record your review. Please try again.",
         variant: "destructive",
       });
+      throw err;
     }
   };
 
   const deleteSnapshot = async (snapshotId: string) => {
     try {
-      if (mockMode) {
+      if (mockMode || guestMode) {
         await deleteMockSnapshot(snapshotId);
       } else {
         await deleteFirestoreSnapshot(snapshotId);

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/contexts/SnapshotContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/components/ui/use-toast";
 import Layout from "@/components/Layout";
 import ReviewCard from "@/components/ReviewCard";
 import EmptyState from "@/components/EmptyState";
@@ -11,15 +12,25 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Review() {
-  const { dueSnapshots, updateSnapshotAfterReview, refreshSnapshots } = useSnapshots();
+  const { dueSnapshots, updateSnapshotAfterReview } = useSnapshots();
   const { user, guestMode, setGuestMode } = useAuth();
+  const { toast } = useToast();
   const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
   const [isReviewComplete, setIsReviewComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    // Refresh snapshots when the component mounts
-    refreshSnapshots();
-  }, [refreshSnapshots]);
+    // Set loading state initially
+    setIsLoading(true);
+    
+    // After a brief delay, check if we have snapshots
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setIsReviewComplete(dueSnapshots.length === 0);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [dueSnapshots.length]);
   
   useEffect(() => {
     // Reset state when due snapshots change
@@ -27,9 +38,18 @@ export default function Review() {
     setIsReviewComplete(dueSnapshots.length === 0);
   }, [dueSnapshots.length]);
   
-  const handleReview = async (snapshotId: string, difficulty: Difficulty) => {
-    await updateSnapshotAfterReview(snapshotId, difficulty);
-  };
+  const handleReview = async (snapshotId: string, difficulty: Difficulty): Promise<void> => {
+      try {
+        await updateSnapshotAfterReview(snapshotId, difficulty);
+      } catch (error) {
+        console.error("Error during review:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save your review. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
   
   const handleNextCard = () => {
     if (currentSnapshotIndex < dueSnapshots.length - 1) {
@@ -43,14 +63,26 @@ export default function Review() {
     setGuestMode(true);
   };
   
+  // Show loading state
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="w-12 h-12 border-4 border-t-4 border-t-neuro-primary border-gray-200 rounded-full animate-spin"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your review items...</p>
+        </div>
+      </Layout>
+    );
+  }
+  
   // Show auth prompt if not logged in and not in guest mode
   if (!user && !guestMode) {
     return (
       <Layout>
         <div className="max-w-md mx-auto my-12">
-          <Card className="p-6">
+          <Card className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-xl">
             <h1 className="text-2xl font-bold mb-4">Welcome to NeuroSnap</h1>
-            <p className="mb-6 text-gray-600">
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
               Sign in to review your memory snapshots or continue as a guest.
             </p>
             <div className="space-y-3">
@@ -67,7 +99,7 @@ export default function Review() {
               >
                 Continue as Guest
               </Button>
-              <p className="text-xs text-gray-500 text-center pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2">
                 Guest mode stores data locally in your browser.
               </p>
             </div>
@@ -82,11 +114,11 @@ export default function Review() {
     return (
       <Layout>
         <div className="max-w-md mx-auto my-8">
-          <Card className="p-8 text-center bg-gradient-to-b from-neuro-light to-white">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Card className="p-8 text-center bg-gradient-to-b from-neuro-light to-white dark:from-gray-800 dark:to-gray-900">
+            <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
-                className="h-8 w-8 text-green-600" 
+                className="h-8 w-8 text-green-600 dark:text-green-400" 
                 fill="none" 
                 viewBox="0 0 24 24" 
                 stroke="currentColor"
@@ -102,7 +134,7 @@ export default function Review() {
             <h2 className="text-2xl font-bold mb-2">
               All caught up!
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               You've completed all your reviews for now. Great job on building your memory!
             </p>
             <div className="space-y-3">
@@ -128,7 +160,7 @@ export default function Review() {
     <Layout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-gray-600 dark:text-gray-400">
             Reviewing {currentSnapshotIndex + 1} of {dueSnapshots.length}
           </div>
           <Link to="/">
@@ -144,7 +176,7 @@ export default function Review() {
           onNextCard={handleNextCard}
         />
         
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-4">
           <div 
             className="bg-neuro-primary h-2 rounded-full transition-all duration-300"
             style={{ 

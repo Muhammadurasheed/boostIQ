@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/contexts/SnapshotContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,9 +8,11 @@ import StatsCard from "@/components/StatsCard";
 import SnapshotCard from "@/components/SnapshotCard";
 import WelcomeCard from "@/components/WelcomeCard";
 import EmptyState from "@/components/EmptyState";
+import UserProfile from "@/components/UserProfile";
+import MemoryChart from "@/components/MemoryChart";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
@@ -39,7 +41,7 @@ export default function Dashboard() {
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <div className="w-12 h-12 border-4 border-t-4 border-t-neuro-primary border-gray-200 rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-600">Loading your memory snapshots...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading your memory snapshots...</p>
         </div>
       </Layout>
     );
@@ -50,9 +52,9 @@ export default function Dashboard() {
     return (
       <Layout>
         <div className="max-w-md mx-auto my-12">
-          <Card className="p-6">
+          <Card className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-xl">
             <h1 className="text-2xl font-bold mb-4">Welcome to NeuroSnap</h1>
-            <p className="mb-6 text-gray-600">
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
               Sign in to access your memory snapshots or continue as a guest.
             </p>
             <div className="space-y-3">
@@ -69,7 +71,7 @@ export default function Dashboard() {
               >
                 Continue as Guest
               </Button>
-              <p className="text-xs text-gray-500 text-center pt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2">
                 Guest mode stores data locally in your browser.
               </p>
             </div>
@@ -81,9 +83,19 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {/* User profile section */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 pb-2 border-b dark:border-gray-800">
+          <UserProfile user={user} userData={userData} />
+          <Link to="/create">
+            <Button size="lg" className="bg-neuro-primary hover:bg-neuro-primary/90">
+              Create New Snapshot
+            </Button>
+          </Link>
+        </div>
+
         {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatsCard 
             title="Total Snapshots" 
             value={snapshots.length} 
@@ -100,6 +112,16 @@ export default function Dashboard() {
             description={userData?.stats.streakDays === 1 ? "First day! Keep it up!" : "Consecutive days of review"}
           />
         </div>
+        
+        {/* Memory chart */}
+        {snapshots.length > 0 && (
+          <Card className="p-6 bg-white dark:bg-gray-800 shadow-sm">
+            <h2 className="text-xl font-semibold mb-4">Memory Progress</h2>
+            <CardContent className="p-0">
+              <MemoryChart snapshots={snapshots} />
+            </CardContent>
+          </Card>
+        )}
         
         {/* Main content section */}
         <div className="space-y-6">
@@ -136,7 +158,7 @@ export default function Dashboard() {
                 
                 <TabsContent value="all" className="mt-6">
                   {filteredSnapshots.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredSnapshots.map(snapshot => (
                         <SnapshotCard 
                           key={snapshot.id} 
@@ -161,7 +183,7 @@ export default function Dashboard() {
                 
                 <TabsContent value="due" className="mt-6">
                   {dueSnapshots.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {dueSnapshots.map(snapshot => (
                         <SnapshotCard 
                           key={snapshot.id} 

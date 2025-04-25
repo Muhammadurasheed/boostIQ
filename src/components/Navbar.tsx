@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSnapshots } from "@/contexts/SnapshotContext";
 import ThemeToggle from "./ThemeToggle";
+import boostiqLogo from "@/assets/boostiq_logo.png";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,15 @@ export default function Navbar() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
+
+
+
             <Link to="/" className="flex items-center">
+              <img
+                src={boostiqLogo}
+                alt="BoostIQ Logo"
+                className="h-12 w-auto"
+              />
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-neuro-primary to-neuro-secondary">
                 BoostIQ
               </span>
@@ -59,11 +68,11 @@ export default function Navbar() {
               </Button>
             </Link>
           </nav>
-          
+
           <div className="flex items-center space-x-4">
             {/* Theme toggle button */}
             <ThemeToggle />
-            
+
             {/* User menu dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -97,7 +106,7 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-      
+
       <div className="md:hidden border-t">
         <div className="grid grid-cols-3 divide-x">
           <Link to="/" className="py-2 text-center">
