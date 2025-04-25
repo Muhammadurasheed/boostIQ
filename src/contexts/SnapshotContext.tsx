@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Snapshot, User } from "../types";
 import { 
@@ -18,7 +17,7 @@ import {
   getMockUserData,
   updateMockUserStreak
 } from "../lib/firestoreService";
-import { Difficulty } from "../lib/spacedRepetition";
+import { Difficulty, isSnapshotDue } from "../lib/spacedRepetition";
 import { useToast } from "../components/ui/use-toast";
 import { useAuth } from "./AuthContext";
 
@@ -32,6 +31,7 @@ interface SnapshotContextType {
   updateSnapshotAfterReview: (snapshotId: string, difficulty: Difficulty) => Promise<void>;
   deleteSnapshot: (snapshotId: string) => Promise<void>;
   refreshSnapshots: () => Promise<void>;
+  refreshDueSnapshots: () => Promise<void>; // New function to specifically refresh due snapshots
   mockMode: boolean;
 }
 
@@ -56,7 +56,15 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
     };
     
     checkMockMode();
-  }, [user, guestMode]); // Now depends on user and guestMode state
+  }, [user, guestMode]);
+
+  // Function to manually filter due snapshots from all snapshots
+  const filterDueSnapshots = (allSnapshots: Snapshot[]): Snapshot[] => {
+    const now = new Date();
+    return allSnapshots.filter(snapshot => 
+      snapshot.review.nextReviewDate <= now
+    );
+  };
 
   // Load snapshots and user data
   useEffect(() => {
@@ -83,7 +91,14 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
           if (mockMode || guestMode) {
             try {
               snapshotData = await getMockSnapshots();
-              dueSnapshotData = await getMockDueSnapshots();
+              // Try to get due snapshots from service first
+              try {
+                dueSnapshotData = await getMockDueSnapshots();
+              } catch (err) {
+                // Fallback: filter them manually if service call fails
+                console.log("Filtering due snapshots manually");
+                dueSnapshotData = filterDueSnapshots(snapshotData);
+              }
               userData = await getMockUserData();
             } catch (err) {
               console.log("Using empty local storage data for guest mode");
@@ -103,7 +118,14 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
           } else {
             try {
               snapshotData = await getUserSnapshots();
-              dueSnapshotData = await getDueSnapshots();
+              // Try to get due snapshots from service first
+              try {
+                dueSnapshotData = await getDueSnapshots();
+              } catch (err) {
+                // Fallback: filter them manually if service call fails
+                console.log("Filtering due snapshots manually");
+                dueSnapshotData = filterDueSnapshots(snapshotData);
+              }
               userData = await getCurrentUserData();
             } catch (err) {
               console.error("Error loading authenticated data:", err);
@@ -158,18 +180,17 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       }
       
       let snapshotData: Snapshot[];
-      let dueSnapshotData: Snapshot[];
       
       if (mockMode || guestMode) {
         snapshotData = await getMockSnapshots();
-        dueSnapshotData = await getMockDueSnapshots();
       } else {
         snapshotData = await getUserSnapshots();
-        dueSnapshotData = await getDueSnapshots();
       }
       
       setSnapshots(snapshotData);
-      setDueSnapshots(dueSnapshotData);
+      
+      // After refreshing all snapshots, update due snapshots too
+      await refreshDueSnapshots();
     } catch (err) {
       console.error("Error refreshing snapshots:", err);
       // Don't show error if we're just in an empty state
@@ -185,6 +206,43 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshDueSnapshots = async () => {
+    try {
+      // Only refresh if user is logged in or in mock mode
+      if (!user && !mockMode && !guestMode) {
+        setDueSnapshots([]);
+        return;
+      }
+      
+      let dueSnapshotData: Snapshot[];
+      
+      if (mockMode || guestMode) {
+        try {
+          dueSnapshotData = await getMockDueSnapshots();
+        } catch (err) {
+          console.log("Falling back to manual filtering of due snapshots");
+          dueSnapshotData = filterDueSnapshots(snapshots);
+        }
+      } else {
+        try {
+          dueSnapshotData = await getDueSnapshots();
+        } catch (err) {
+          console.log("Falling back to manual filtering of due snapshots");
+          dueSnapshotData = filterDueSnapshots(snapshots);
+        }
+      }
+      
+      console.log("Due snapshots refreshed:", dueSnapshotData.length);
+      setDueSnapshots(dueSnapshotData);
+    } catch (err) {
+      console.error("Error refreshing due snapshots:", err);
+      // Fallback to manual filtering if API call fails
+      const manuallyFilteredDueSnapshots = filterDueSnapshots(snapshots);
+      console.log("Manually filtered due snapshots:", manuallyFilteredDueSnapshots.length);
+      setDueSnapshots(manuallyFilteredDueSnapshots);
+    }
+  };
+
   const createSnapshot = async (snapshot: Omit<Snapshot, "id" | "createdAt" | "review" | "userId">) => {
     try {
       const newSnapshot = mockMode || guestMode
@@ -195,8 +253,8 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
       setSnapshots(prev => [newSnapshot, ...prev]);
       
       // Check if the snapshot is due immediately
-      const now = new Date();
-      if (newSnapshot.review.nextReviewDate <= now) {
+      if (isSnapshotDue(newSnapshot.review)) {
+        console.log("New snapshot is due immediately");
         setDueSnapshots(prev => [newSnapshot, ...prev]);
       }
       
@@ -227,14 +285,22 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
         prev.map(s => s.id === snapshotId ? updatedSnapshot : s)
       );
       
-      // Update due snapshots state (remove it if it's no longer due)
-      const now = new Date();
-      if (updatedSnapshot.review.nextReviewDate > now) {
+      // Update due snapshots state
+      const isStillDue = isSnapshotDue(updatedSnapshot.review);
+      
+      if (!isStillDue) {
+        // Remove from due list if no longer due
         setDueSnapshots(prev => prev.filter(s => s.id !== snapshotId));
       } else {
-        setDueSnapshots(prev => 
-          prev.map(s => s.id === snapshotId ? updatedSnapshot : s)
-        );
+        // Update it in the due list if still due
+        setDueSnapshots(prev => {
+          const exists = prev.some(s => s.id === snapshotId);
+          if (exists) {
+            return prev.map(s => s.id === snapshotId ? updatedSnapshot : s);
+          } else {
+            return [...prev, updatedSnapshot];
+          }
+        });
       }
       
       // Update user streak
@@ -300,6 +366,7 @@ export function SnapshotProvider({ children }: { children: ReactNode }) {
     updateSnapshotAfterReview,
     deleteSnapshot,
     refreshSnapshots,
+    refreshDueSnapshots,
     mockMode
   };
 

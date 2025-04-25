@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/contexts/SnapshotContext";
@@ -17,8 +16,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
   const { user, guestMode, setGuestMode } = useAuth();
-  const { snapshots, dueSnapshots, userData, loading, mockMode } = useSnapshots();
+  const { 
+    snapshots, 
+    dueSnapshots, 
+    userData, 
+    loading, 
+    mockMode, 
+    refreshSnapshots, 
+    refreshDueSnapshots 
+  } = useSnapshots();
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  
+  // Refresh both snapshots and due snapshots when dashboard loads
+  useEffect(() => {
+    const loadAllData = async () => {
+      if (!loading) {
+        await refreshSnapshots();
+        await refreshDueSnapshots();
+      }
+    };
+    
+    loadAllData();
+  }, [user, guestMode]); // Only reload when user or guest mode changes
   
   // Filter snapshots by search term
   const filteredSnapshots = snapshots.filter(snapshot => {
@@ -32,8 +52,28 @@ export default function Dashboard() {
     );
   });
   
+  // Filter due snapshots by search term
+  const filteredDueSnapshots = dueSnapshots.filter(snapshot => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      snapshot.question.toLowerCase().includes(searchLower) ||
+      snapshot.answer.toLowerCase().includes(searchLower) ||
+      snapshot.summary.toLowerCase().includes(searchLower) ||
+      snapshot.originalText.toLowerCase().includes(searchLower) ||
+      snapshot.tags.some(tag => tag.toLowerCase().includes(searchLower))
+    );
+  });
+  
   const handleEnableGuestMode = () => {
     setGuestMode(true);
+  };
+  
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // If changing to the due tab, refresh due snapshots
+    if (value === "due") {
+      refreshDueSnapshots();
+    }
   };
   
   if (loading) {
@@ -148,7 +188,7 @@ export default function Dashboard() {
               </div>
               
               {/* Snapshots tabs */}
-              <Tabs defaultValue="all" className="w-full">
+              <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
                 <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
                   <TabsTrigger value="all">All Snapshots</TabsTrigger>
                   <TabsTrigger value="due">
@@ -182,9 +222,9 @@ export default function Dashboard() {
                 </TabsContent>
                 
                 <TabsContent value="due" className="mt-6">
-                  {dueSnapshots.length > 0 ? (
+                  {filteredDueSnapshots.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {dueSnapshots.map(snapshot => (
+                      {filteredDueSnapshots.map(snapshot => (
                         <SnapshotCard 
                           key={snapshot.id} 
                           snapshot={snapshot}
@@ -201,7 +241,7 @@ export default function Dashboard() {
                     />
                   )}
                   
-                  {dueSnapshots.length > 0 && (
+                  {filteredDueSnapshots.length > 0 && (
                     <div className="mt-6 flex justify-center">
                       <Link to="/review">
                         <Button size="lg">

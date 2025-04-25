@@ -1,5 +1,4 @@
-
-// Simplified SM-2 algorithm for spaced repetition
+// Simplified SM-2 algorithm for spaced repetition with demo-friendly intervals
 // https://en.wikipedia.org/wiki/SuperMemo#Algorithm
 
 export enum Difficulty {
@@ -16,23 +15,13 @@ export interface ReviewInfo {
   reviewCount: number;
 }
 
-
-// Review information tracked for each snapshot
-export interface ReviewInfo {
-  lastReviewDate: Date;    // When the snapshot was last reviewed
-  nextReviewDate: Date;    // When the snapshot should be reviewed next
-  interval: number;        // Current interval in days between reviews
-  easeFactor: number;      // Multiplier that affects how quickly intervals grow (1.3 - 2.5)
-  reviewCount: number;     // Number of times the snapshot has been reviewed
-}
-
 /**
  * Calculates the next review date based on current review info and difficulty rating
- * 
+ *
  * The algorithm adjusts:
  * 1. The ease factor (how quickly intervals grow) based on difficulty
  * 2. The interval between reviews, which increases exponentially for well-remembered items
- * 
+ *
  * @param currentReview Current review information
  * @param difficulty User's difficulty rating (Easy, Medium, Hard)
  * @returns Updated review information with new schedule
@@ -43,7 +32,7 @@ export function calculateNextReview(
 ): ReviewInfo {
   const now = new Date();
   let { interval, easeFactor, reviewCount } = currentReview;
-  
+
   // Adjust ease factor based on difficulty rating
   switch (difficulty) {
     case Difficulty.Easy:
@@ -59,38 +48,36 @@ export function calculateNextReview(
 
   // Calculate the next interval
   let nextInterval: number;
-  
+
   if (reviewCount === 0) {
-    // First review - short intervals to build initial memory
-    nextInterval = difficulty === Difficulty.Hard ? 0.1 : // 2.4 hours
-                 difficulty === Difficulty.Medium ? 0.5 : // 12 hours
-                 1; // 1 day
+    // First review - very short for demoing
+    nextInterval = difficulty === Difficulty.Hard ? 0.0007 :  // ~1 minute
+                   difficulty === Difficulty.Medium ? 0.002 : // ~3 minutes
+                   0.005;                                     // ~7 minutes
   } else if (reviewCount === 1) {
-    // Second review - begin spacing out more
-    nextInterval = difficulty === Difficulty.Hard ? 1 : // 1 day
-                 difficulty === Difficulty.Medium ? 3 : // 3 days
-                 5; // 5 days
+    // Second review - space out a bit more
+    nextInterval = difficulty === Difficulty.Hard ? 0.005 :   // ~7 minutes
+                   difficulty === Difficulty.Medium ? 0.01 :  // ~15 minutes
+                   0.02;                                      // ~30 minutes
   } else {
     // Apply the SM-2 formula: interval = previous_interval * ease_factor
-    nextInterval = Math.round(interval * easeFactor);
-    
+    nextInterval = interval * easeFactor;
+
     // Adjust based on difficulty
     if (difficulty === Difficulty.Hard) {
-      nextInterval = Math.max(Math.floor(nextInterval * 0.5), 1);
+      nextInterval = Math.max(nextInterval * 0.5, 0.001); // minimum ~1.5 mins
     } else if (difficulty === Difficulty.Medium) {
-      nextInterval = Math.floor(nextInterval * 0.8);
+      nextInterval = nextInterval * 0.8;
     }
+
+    // Optional: round to avoid sub-second precision
+    nextInterval = Math.round(nextInterval * 10000) / 10000;
   }
-  
-  // Calculate the next review date
-  const nextReviewDate = new Date(now);
-  nextReviewDate.setDate(now.getDate() + nextInterval);
-  
-  // For first reviews, handle hours instead of days for short intervals
-  if (nextInterval < 1) {
-    nextReviewDate.setHours(now.getHours() + Math.round(nextInterval * 24));
-  }
-  
+
+  // Calculate the next review date using precise millisecond math
+  const milliseconds = nextInterval * 24 * 60 * 60 * 1000; // days to ms
+  const nextReviewDate = new Date(now.getTime() + milliseconds);
+
   return {
     lastReviewDate: now,
     nextReviewDate,
@@ -102,19 +89,17 @@ export function calculateNextReview(
 
 /**
  * Initialize a new review schedule for a newly created snapshot
- * The first review is scheduled after a short interval (10 minutes)
- * to establish initial memory
+ * The first review is scheduled after a very short interval (e.g., 30 seconds)
  */
 export function initializeReview(): ReviewInfo {
   const now = new Date();
-  const nextReviewDate = new Date(now);
-  nextReviewDate.setMinutes(now.getMinutes() + 10); // First review in 10 minutes
-  
+  const nextReviewDate = new Date(now.getTime() + 30 * 1000); // 30 seconds
+
   return {
     lastReviewDate: now,
     nextReviewDate,
-    interval: 0.007, // 10 minutes in days
-    easeFactor: 2.5, // Default ease factor in SM-2
+    interval: 0.00035, // 30 seconds in days
+    easeFactor: 2.5,   // Default ease factor in SM-2
     reviewCount: 0
   };
 }

@@ -17,7 +17,7 @@ Most learning tools stop at helping you understand. BoostIQ goes further — it 
 
 ## 🌐 Live Demo
 
-> [Launch BoostIQ in your browser](https://your-boostiq-link.com)  
+> [Launch BoostIQ in your browser](https://boostiq.vercel.app)  
 > 
 
 
@@ -62,28 +62,15 @@ npm run dev
 
 To use Gemini API and Firebase, create a `.env` file at the project root:
 env
-VITE_GEMINI_API_KEY=go_create_ur_own_key
-VITE_FIREBASE_API_KEY=your_firebase_key
-VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_sender_id
-VITE_FIREBASE_APP_ID=your_firebase_app_id
+- VITE_GEMINI_API_KEY=go_create_ur_own_key
+- VITE_FIREBASE_API_KEY=your_firebase_key
+- VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+- VITE_FIREBASE_PROJECT_ID=your_firebase_project_id
+- VITE_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+- VITE_FIREBASE_MESSAGING_SENDER_ID=your_firebase_sender_id
+- VITE_FIREBASE_APP_ID=your_firebase_app_id
 
-> You can find these in your Firebase project settings.
-
-
-## 🌍 Deployment
-
-You can deploy BoostIQ with any static host like:
-
-- [Vercel](https://vercel.com/)
-- [Netlify](https://netlify.com/)
-- Firebase Hosting
-- GitHub Pages (via Vite plugin)
-
-Make sure to set the same environment variables in your deployment platform.
-
+> You can set these up in your Firebase project settings.
 
 ## 🙋‍♀️ Contribution
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useSnapshots } from "@/contexts/SnapshotContext";
@@ -12,47 +11,78 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Review() {
-  const { dueSnapshots, updateSnapshotAfterReview } = useSnapshots();
+  const { dueSnapshots, updateSnapshotAfterReview, refreshSnapshots } = useSnapshots();
   const { user, guestMode, setGuestMode } = useAuth();
   const { toast } = useToast();
   const [currentSnapshotIndex, setCurrentSnapshotIndex] = useState(0);
   const [isReviewComplete, setIsReviewComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [localDueSnapshots, setLocalDueSnapshots] = useState([]);
   
+  // Force refresh when component mounts
   useEffect(() => {
-    // Set loading state initially
+    refreshSnapshots();
+  }, []);
+  
+  // Initialize and update local copy of due snapshots whenever dueSnapshots changes
+  useEffect(() => {
+    console.log('Due snapshots received in Review component:', dueSnapshots.length);
+    dueSnapshots.forEach(s => {
+      console.log(`Snapshot ${s.id}: next review at ${s.review.nextReviewDate.toLocaleString()}`);
+    });
+    
+    setLocalDueSnapshots([...dueSnapshots]);
+    setCurrentSnapshotIndex(0);
     setIsLoading(true);
     
-    // After a brief delay, check if we have snapshots
     const timer = setTimeout(() => {
       setIsLoading(false);
       setIsReviewComplete(dueSnapshots.length === 0);
-    }, 1000);
+    }, 500); // Reduced from 1000ms for better UX
     
     return () => clearTimeout(timer);
-  }, [dueSnapshots.length]);
-  
-  useEffect(() => {
-    // Reset state when due snapshots change
-    setCurrentSnapshotIndex(0);
-    setIsReviewComplete(dueSnapshots.length === 0);
-  }, [dueSnapshots.length]);
+  }, [dueSnapshots]);
   
   const handleReview = async (snapshotId: string, difficulty: Difficulty): Promise<void> => {
-      try {
-        await updateSnapshotAfterReview(snapshotId, difficulty);
-      } catch (error) {
-        console.error("Error during review:", error);
-        toast({
-          title: "Error",
-          description: "Failed to save your review. Please try again.",
-          variant: "destructive",
-        });
+    try {
+      console.log(`Processing review for snapshot ${snapshotId} with difficulty: ${difficulty}`);
+      
+      // Process the review in the backend
+      await updateSnapshotAfterReview(snapshotId, difficulty);
+      
+      // After successful review, refresh snapshots from the backend
+      await refreshSnapshots();
+      
+      // Remove the current snapshot from our local tracking array
+      const updatedLocalSnapshots = localDueSnapshots.filter(
+        (snapshot, index) => index !== currentSnapshotIndex
+      );
+      
+      console.log(`After review: ${updatedLocalSnapshots.length} snapshots remaining`);
+      setLocalDueSnapshots(updatedLocalSnapshots);
+      
+      // If we've removed all items, show completion screen
+      if (updatedLocalSnapshots.length === 0) {
+        setIsReviewComplete(true);
       }
-    };
+      
+      // Keep the index the same (which will now point to the next snapshot)
+      // unless we're at the end of the list
+      if (currentSnapshotIndex >= updatedLocalSnapshots.length) {
+        setIsReviewComplete(true);
+      }
+    } catch (error) {
+      console.error("Error during review:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save your review. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   const handleNextCard = () => {
-    if (currentSnapshotIndex < dueSnapshots.length - 1) {
+    if (currentSnapshotIndex < localDueSnapshots.length - 1) {
       setCurrentSnapshotIndex(currentSnapshotIndex + 1);
     } else {
       setIsReviewComplete(true);
@@ -61,6 +91,12 @@ export default function Review() {
   
   const handleEnableGuestMode = () => {
     setGuestMode(true);
+  };
+  
+  const handleManualRefresh = async () => {
+    setIsLoading(true);
+    await refreshSnapshots();
+    // Loading state will be updated by the useEffect that watches dueSnapshots
   };
   
   // Show loading state
@@ -81,7 +117,7 @@ export default function Review() {
       <Layout>
         <div className="max-w-md mx-auto my-12">
           <Card className="p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 shadow-xl">
-            <h1 className="text-2xl font-bold mb-4">Welcome to NeuroSnap</h1>
+            <h1 className="text-2xl font-bold mb-4">Welcome to BoostIQ</h1>
             <p className="mb-6 text-gray-600 dark:text-gray-300">
               Sign in to review your memory snapshots or continue as a guest.
             </p>
@@ -110,7 +146,7 @@ export default function Review() {
   }
   
   // Show completion screen if all reviews are done
-  if (isReviewComplete || dueSnapshots.length === 0) {
+  if (isReviewComplete || localDueSnapshots.length === 0) {
     return (
       <Layout>
         <div className="max-w-md mx-auto my-8">
@@ -148,6 +184,9 @@ export default function Review() {
                   Create New Snapshot
                 </Button>
               </Link>
+              <Button variant="ghost" className="w-full" onClick={handleManualRefresh}>
+                Check for New Reviews
+              </Button>
             </div>
           </Card>
         </div>
@@ -155,32 +194,43 @@ export default function Review() {
     );
   }
   
-  // Normal review flow
+  // Normal review flow with locally managed due snapshots
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="text-sm text-gray-600 dark:text-gray-400">
-            Reviewing {currentSnapshotIndex + 1} of {dueSnapshots.length}
+            Reviewing {currentSnapshotIndex + 1} of {localDueSnapshots.length}
           </div>
-          <Link to="/">
-            <Button variant="ghost" size="sm">
-              Finish Later
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleManualRefresh}
+            >
+              Refresh
             </Button>
-          </Link>
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                Finish Later
+              </Button>
+            </Link>
+          </div>
         </div>
         
-        <ReviewCard 
-          snapshot={dueSnapshots[currentSnapshotIndex]}
-          onReview={handleReview}
-          onNextCard={handleNextCard}
-        />
+        {localDueSnapshots.length > 0 && currentSnapshotIndex < localDueSnapshots.length && (
+          <ReviewCard 
+            snapshot={localDueSnapshots[currentSnapshotIndex]}
+            onReview={handleReview}
+            onNextCard={handleNextCard}
+          />
+        )}
         
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-4">
           <div 
             className="bg-neuro-primary h-2 rounded-full transition-all duration-300"
             style={{ 
-              width: `${((currentSnapshotIndex + 1) / dueSnapshots.length) * 100}%` 
+              width: `${((currentSnapshotIndex + 1) / localDueSnapshots.length) * 100}%` 
             }}
           ></div>
         </div>
